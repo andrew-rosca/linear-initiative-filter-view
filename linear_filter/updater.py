@@ -6,7 +6,7 @@ from .filter_parser import parse_filter
 
 
 class ViewUpdater:
-    """Handles updating Linear roadmap views with filtered initiatives."""
+    """Handles updating Linear custom views with initiative filters."""
 
     def __init__(self, client: LinearClient):
         """Initialize updater.
@@ -16,40 +16,45 @@ class ViewUpdater:
         """
         self.client = client
 
-    async def get_filtered_initiatives(self, view_config: ViewConfig) -> List[Dict[str, Any]]:
-        """Get initiatives matching the view's filter.
+    def get_filter_from_config(self, view_config: ViewConfig) -> Dict[str, Any]:
+        """Get GraphQL filter from view configuration.
 
         Args:
             view_config: View configuration with filter or GraphQL query
 
         Returns:
-            List of matching initiatives
+            GraphQL InitiativeFilter object
+
+        Note:
+            For raw GraphQL queries, this extracts the filter portion.
+            The full query syntax is not supported for custom view filters.
         """
-        if view_config.graphql_query:
-            # Use raw GraphQL query
-            initiatives = await self.client.query_initiatives_raw(view_config.graphql_query)
-        elif view_config.filter:
+        if view_config.filter:
             # Parse SQL-like filter to GraphQL
-            graphql_filter = parse_filter(view_config.filter)
-            initiatives = await self.client.query_initiatives(graphql_filter)
+            return parse_filter(view_config.filter)
+        elif view_config.graphql_query:
+            # For raw GraphQL, we need to extract just the filter part
+            # This is a simplified approach - user should provide the filter object directly
+            raise ValueError(
+                "Raw GraphQL queries are not fully supported yet. "
+                "Please use the simplified filter syntax instead, or provide the filter object directly."
+            )
         else:
             raise ValueError("View must have either filter or graphql_query")
 
-        return initiatives
-
-    async def get_roadmap(self, view_config: ViewConfig) -> Optional[Dict[str, Any]]:
-        """Get roadmap view by ID or title.
+    async def get_custom_view(self, view_config: ViewConfig) -> Optional[Dict[str, Any]]:
+        """Get custom view by ID or name.
 
         Args:
             view_config: View configuration
 
         Returns:
-            Roadmap object or None if not found
+            CustomView object or None if not found
         """
         if view_config.view_id:
-            return await self.client.get_roadmap_by_id(view_config.view_id)
+            return await self.client.get_custom_view_by_id(view_config.view_id)
         elif view_config.title:
-            return await self.client.get_roadmap_by_title(view_config.title)
+            return await self.client.get_custom_view_by_name(view_config.title)
         else:
             raise ValueError("View must have either view_id or title")
 
@@ -58,60 +63,52 @@ class ViewUpdater:
         view_config: ViewConfig,
         dry_run: bool = False
     ) -> Dict[str, Any]:
-        """Update a single view with filtered initiatives.
+        """Update a single view with initiative filter.
 
         Args:
             view_config: View configuration
             dry_run: If True, only show what would be done without making changes
 
         Returns:
-            Dictionary with update results and statistics
+            Dictionary with update results
         """
-        # Get the roadmap
-        roadmap = await self.get_roadmap(view_config)
+        # Get the custom view
+        view = await self.get_custom_view(view_config)
 
-        if not roadmap:
+        if not view:
             identifier = view_config.title or view_config.view_id
-            raise ValueError(f"Roadmap not found: {identifier}")
+            raise ValueError(f"Custom view not found: {identifier}")
 
-        # Get filtered initiatives
-        initiatives = await self.get_filtered_initiatives(view_config)
+        # Get the new filter from config
+        new_filter = self.get_filter_from_config(view_config)
 
-        # Extract initiative IDs
-        initiative_ids = [initiative["id"] for initiative in initiatives]
+        # Get current filter
+        current_filter = view.get("initiativeFilterData")
 
-        # Get current initiative IDs
-        current_ids = set(roadmap.get("initiativeIds", []))
-        new_ids = set(initiative_ids)
-
-        # Calculate changes
-        added = new_ids - current_ids
-        removed = current_ids - new_ids
+        # Check if filter changed
+        filter_changed = current_filter != new_filter
 
         result = {
-            "roadmap_id": roadmap["id"],
-            "roadmap_name": roadmap["name"],
-            "total_initiatives": len(initiative_ids),
-            "added": len(added),
-            "removed": len(removed),
-            "unchanged": len(current_ids & new_ids),
-            "initiative_ids": initiative_ids,
+            "view_id": view["id"],
+            "view_name": view["name"],
+            "filter_changed": filter_changed,
+            "old_filter": current_filter,
+            "new_filter": new_filter,
             "dry_run": dry_run,
         }
 
         # Update the view (unless dry run)
         if not dry_run:
-            if len(initiative_ids) == 0:
-                print(f"WARNING: Filter returned 0 initiatives for view '{roadmap['name']}'")
-                print(f"  Current view has {len(current_ids)} initiatives")
-                print(f"  Skipping update to avoid clearing the view")
-                result["skipped"] = True
-            else:
-                updated_roadmap = await self.client.update_roadmap(
-                    roadmap["id"],
-                    initiative_ids
+            if filter_changed:
+                updated_view = await self.client.update_custom_view(
+                    view["id"],
+                    new_filter
                 )
                 result["updated"] = True
+            else:
+                result["updated"] = False
+                result["skipped"] = True
+                result["skip_reason"] = "Filter unchanged"
         else:
             result["updated"] = False
 
@@ -141,8 +138,8 @@ class ViewUpdater:
                 # Capture errors but continue with other views
                 identifier = view_config.title or view_config.view_id
                 results.append({
-                    "roadmap_id": None,
-                    "roadmap_name": identifier,
+                    "view_id": None,
+                    "view_name": identifier,
                     "error": str(e),
                     "dry_run": dry_run,
                 })

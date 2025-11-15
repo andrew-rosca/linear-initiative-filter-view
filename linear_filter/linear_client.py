@@ -30,65 +30,22 @@ class LinearClient:
         )
         self.client = Client(transport=transport, fetch_schema_from_transport=True)
 
-    async def query_initiatives(self, graphql_filter: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Query initiatives using GraphQL filter.
+    async def get_custom_view_by_name(self, name: str) -> Optional[Dict[str, Any]]:
+        """Get custom view by name.
 
         Args:
-            graphql_filter: GraphQL filter object for initiatives query
+            name: Custom view name
 
         Returns:
-            List of initiative objects with id, title, etc.
+            CustomView object or None if not found
         """
         query = gql("""
-            query GetInitiatives($filter: InitiativeFilter) {
-                initiatives(filter: $filter) {
+            query GetCustomViews {
+                customViews {
                     nodes {
                         id
                         name
-                        status
-                    }
-                }
-            }
-        """)
-
-        async with self.client as session:
-            result = await session.execute(query, variable_values={"filter": graphql_filter})
-            return result["initiatives"]["nodes"]
-
-    async def query_initiatives_raw(self, raw_query: str) -> List[Dict[str, Any]]:
-        """Execute a raw GraphQL query for initiatives.
-
-        Args:
-            raw_query: Raw GraphQL query string
-
-        Returns:
-            List of initiative objects
-        """
-        query = gql(raw_query)
-
-        async with self.client as session:
-            result = await session.execute(query)
-            # Try to extract initiatives from various possible response structures
-            if "initiatives" in result:
-                return result["initiatives"].get("nodes", [])
-            return []
-
-    async def get_roadmap_by_title(self, title: str) -> Optional[Dict[str, Any]]:
-        """Get roadmap view by title.
-
-        Args:
-            title: Roadmap view title
-
-        Returns:
-            Roadmap object or None if not found
-        """
-        query = gql("""
-            query GetRoadmaps {
-                roadmaps {
-                    nodes {
-                        id
-                        name
-                        initiativeIds
+                        initiativeFilterData
                     }
                 }
             }
@@ -96,58 +53,58 @@ class LinearClient:
 
         async with self.client as session:
             result = await session.execute(query)
-            roadmaps = result["roadmaps"]["nodes"]
+            views = result["customViews"]["nodes"]
 
-            for roadmap in roadmaps:
-                if roadmap["name"] == title:
-                    return roadmap
+            for view in views:
+                if view["name"] == name:
+                    return view
 
             return None
 
-    async def get_roadmap_by_id(self, roadmap_id: str) -> Optional[Dict[str, Any]]:
-        """Get roadmap view by ID.
+    async def get_custom_view_by_id(self, view_id: str) -> Optional[Dict[str, Any]]:
+        """Get custom view by ID.
 
         Args:
-            roadmap_id: Roadmap view ID
+            view_id: Custom view ID
 
         Returns:
-            Roadmap object or None if not found
+            CustomView object or None if not found
         """
         query = gql("""
-            query GetRoadmap($id: String!) {
-                roadmap(id: $id) {
+            query GetCustomView($id: String!) {
+                customView(id: $id) {
                     id
                     name
-                    initiativeIds
+                    initiativeFilterData
                 }
             }
         """)
 
         async with self.client as session:
             try:
-                result = await session.execute(query, variable_values={"id": roadmap_id})
-                return result.get("roadmap")
+                result = await session.execute(query, variable_values={"id": view_id})
+                return result.get("customView")
             except Exception:
                 return None
 
-    async def update_roadmap(self, roadmap_id: str, initiative_ids: List[str]) -> Dict[str, Any]:
-        """Update roadmap view with new initiative IDs.
+    async def update_custom_view(self, view_id: str, initiative_filter: Dict[str, Any]) -> Dict[str, Any]:
+        """Update custom view with initiative filter.
 
         Args:
-            roadmap_id: Roadmap view ID
-            initiative_ids: List of initiative IDs to set in the view
+            view_id: Custom view ID
+            initiative_filter: InitiativeFilter object to set on the view
 
         Returns:
-            Updated roadmap object
+            Updated custom view object
         """
         mutation = gql("""
-            mutation UpdateRoadmap($id: String!, $input: RoadmapUpdateInput!) {
-                roadmapUpdate(id: $id, input: $input) {
+            mutation UpdateCustomView($id: String!, $input: CustomViewUpdateInput!) {
+                customViewUpdate(id: $id, input: $input) {
                     success
-                    roadmap {
+                    customView {
                         id
                         name
-                        initiativeIds
+                        initiativeFilterData
                     }
                 }
             }
@@ -157,12 +114,12 @@ class LinearClient:
             result = await session.execute(
                 mutation,
                 variable_values={
-                    "id": roadmap_id,
-                    "input": {"initiativeIds": initiative_ids}
+                    "id": view_id,
+                    "input": {"initiativeFilterData": initiative_filter}
                 }
             )
 
-            if not result["roadmapUpdate"]["success"]:
-                raise Exception("Failed to update roadmap")
+            if not result["customViewUpdate"]["success"]:
+                raise Exception("Failed to update custom view")
 
-            return result["roadmapUpdate"]["roadmap"]
+            return result["customViewUpdate"]["customView"]

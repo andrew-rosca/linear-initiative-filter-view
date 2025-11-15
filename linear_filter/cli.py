@@ -18,60 +18,64 @@ def print_results(results, dry_run=False):
         results: List of update results
         dry_run: Whether this was a dry run
     """
+    import json
+
     mode = "DRY RUN" if dry_run else "UPDATE"
     print(f"\n{'='*60}")
     print(f"{mode} RESULTS")
     print(f"{'='*60}\n")
 
-    total_initiatives = 0
-    total_added = 0
-    total_removed = 0
+    updated_count = 0
+    skipped_count = 0
     errors = []
 
     for result in results:
-        roadmap_name = result.get("roadmap_name", "Unknown")
+        view_name = result.get("view_name", "Unknown")
 
         if "error" in result:
-            print(f"ERROR {roadmap_name}")
+            print(f"ERROR {view_name}")
             print(f"   Error: {result['error']}\n")
-            errors.append(roadmap_name)
+            errors.append(view_name)
             continue
 
         skipped = result.get("skipped", False)
+        filter_changed = result.get("filter_changed", False)
 
         if skipped:
-            print(f"WARNING {roadmap_name} (SKIPPED)")
-        else:
+            skip_reason = result.get("skip_reason", "Unknown reason")
+            print(f"SKIPPED {view_name}")
+            print(f"   Reason: {skip_reason}")
+        elif filter_changed:
             status = "Would update" if dry_run else "Updated"
-            print(f"OK {roadmap_name}")
-
-        print(f"   Total initiatives: {result['total_initiatives']}")
-        print(f"   Added: {result['added']}")
-        print(f"   Removed: {result['removed']}")
-        print(f"   Unchanged: {result['unchanged']}")
-
-        if result['total_initiatives'] == 0:
-            print(f"   WARNING: Filter returned 0 initiatives")
+            print(f"OK {view_name} ({status})")
+            print(f"   Filter changed: Yes")
+            if result.get("old_filter"):
+                print(f"   Old filter: {json.dumps(result['old_filter'], indent=6)}")
+            else:
+                print(f"   Old filter: (none)")
+            print(f"   New filter: {json.dumps(result['new_filter'], indent=6)}")
+            updated_count += 1
+        else:
+            print(f"OK {view_name} (No changes needed)")
+            print(f"   Filter unchanged")
+            skipped_count += 1
 
         print()
-
-        total_initiatives += result['total_initiatives']
-        total_added += result['added']
-        total_removed += result['removed']
 
     # Summary
     print(f"{'='*60}")
     print(f"SUMMARY")
     print(f"{'='*60}")
     print(f"Views processed: {len(results)}")
+    if updated_count > 0:
+        print(f"Would update: {updated_count}" if dry_run else f"Updated: {updated_count}")
+    if skipped_count > 0:
+        print(f"Skipped (no changes): {skipped_count}")
     if errors:
         print(f"Errors: {len(errors)}")
-    print(f"Total initiatives: {total_initiatives}")
-    print(f"Total added: {total_added}")
-    print(f"Total removed: {total_removed}")
     print()
 
-    if dry_run:
+    if dry_run and updated_count > 0:
         print("This was a dry run. Use --no-dry-run to apply changes.")
 
 
