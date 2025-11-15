@@ -19,7 +19,7 @@ Linear currently doesn't support filtering initiatives by labels or other custom
 
 ### Prerequisites
 
-- Python 3.10 or higher
+- Python 3.9 or higher
 - Linear API token ([get one here](https://linear.app/settings/api))
 
 ### Install from source
@@ -330,7 +330,7 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
+          python-version: '3.9'
       - run: pip install -r requirements.txt
       - run: pip install -e .
       - run: linear-filter sync --no-dry-run

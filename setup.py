@@ -17,5 +17,5 @@ setup(
             "linear-filter=linear_filter.cli:main",
         ],
     },
-    python_requires=">=3.10",
+    python_requires=">=3.9",
 )
