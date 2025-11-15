@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """CLI interface for linear-filter tool."""
 import asyncio
 from pathlib import Path
@@ -31,7 +32,7 @@ def print_results(results, dry_run=False):
         roadmap_name = result.get("roadmap_name", "Unknown")
 
         if "error" in result:
-            print(f"L {roadmap_name}")
+            print(f"ERROR {roadmap_name}")
             print(f"   Error: {result['error']}\n")
             errors.append(roadmap_name)
             continue
@@ -39,10 +40,10 @@ def print_results(results, dry_run=False):
         skipped = result.get("skipped", False)
 
         if skipped:
-            print(f"   {roadmap_name} (SKIPPED)")
+            print(f"WARNING {roadmap_name} (SKIPPED)")
         else:
             status = "Would update" if dry_run else "Updated"
-            print(f" {roadmap_name}")
+            print(f"OK {roadmap_name}")
 
         print(f"   Total initiatives: {result['total_initiatives']}")
         print(f"   Added: {result['added']}")
@@ -50,7 +51,7 @@ def print_results(results, dry_run=False):
         print(f"   Unchanged: {result['unchanged']}")
 
         if result['total_initiatives'] == 0:
-            print(f"      WARNING: Filter returned 0 initiatives")
+            print(f"   WARNING: Filter returned 0 initiatives")
 
         print()
 
