@@ -1,0 +1,62 @@
+# Linear Initiative Filter View Configuration
+# Copy this file to config.toml and customize for your needs
+
+[linear]
+# Your Linear API token
+# You can also set the LINEAR_API_TOKEN environment variable instead
+# Get your token from: https://linear.app/settings/api
+api_token = "lin_api_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
+# Example 1: Using simplified SQL-like filter syntax
+[[views]]
+title = "High Priority Initiatives"
+filter = "priority >= 1"
+
+# Example 2: Using view ID instead of title + filter with status
+[[views]]
+view_id = "roadmap_abc123def456"
+filter = "status = 'started'"
+
+# Example 3: Multiple conditions with AND
+[[views]]
+title = "Q1 2025 Initiatives"
+filter = "startDate >= '2025-01-01' AND targetDate <= '2025-03-31'"
+
+# Example 4: String matching with CONTAINS
+[[views]]
+title = "Infrastructure Initiatives"
+filter = "name CONTAINS 'Infrastructure' OR name CONTAINS 'Platform'"
+
+# Example 5: Complex filter with multiple conditions
+[[views]]
+title = "Active High Priority"
+filter = "status = 'started' AND priority > 2"
+
+# Example 6: Using raw GraphQL query for advanced filtering
+[[views]]
+title = "Custom GraphQL Query"
+graphql_query = '''
+{
+  initiatives(filter: {
+    status: { eq: "started" }
+    priority: { gte: 1 }
+  }) {
+    nodes {
+      id
+      name
+      status
+    }
+  }
+}
+'''
+
+# Supported filter operators:
+# - Comparison: =, !=, >, >=, <, <=
+# - String: CONTAINS, STARTS_WITH, ENDS_WITH
+# - Logical: AND, OR, NOT
+#
+# Supported fields:
+# - name, status, priority
+# - startDate, start_date (both work)
+# - targetDate, target_date (both work)
+# - description
