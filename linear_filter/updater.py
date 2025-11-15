@@ -3,6 +3,7 @@ from typing import List, Dict, Any, Optional
 from .linear_client import LinearClient
 from .config import ViewConfig
 from .filter_parser import parse_filter
+from .client_side_filter import ClientSideFilter
 
 
 class ViewUpdater:
@@ -63,7 +64,7 @@ class ViewUpdater:
         view_config: ViewConfig,
         dry_run: bool = False
     ) -> Dict[str, Any]:
-        """Update a single view with initiative filter.
+        """Update a single view with initiatives matching the filter.
 
         Args:
             view_config: View configuration
@@ -79,36 +80,60 @@ class ViewUpdater:
             identifier = view_config.title or view_config.view_id
             raise ValueError(f"Custom view not found: {identifier}")
 
-        # Get the new filter from config
-        new_filter = self.get_filter_from_config(view_config)
+        # Get the filter from config
+        filter_obj = self.get_filter_from_config(view_config)
 
-        # Get current filter
-        current_filter = view.get("initiativeFilterData")
+        # Get current initiatives in the view
+        current_initiatives_data = view.get("initiatives", {}).get("nodes", [])
+        old_initiatives = {init["id"] for init in current_initiatives_data}
 
-        # Check if filter changed
-        filter_changed = current_filter != new_filter
+        # Check if we need client-side filtering
+        requires_client_side = ClientSideFilter.requires_client_side_filtering(filter_obj)
+        
+        if requires_client_side:
+            # Fetch ALL initiatives and apply filter client-side
+            all_initiatives = await self.client.get_initiatives(None)
+            new_initiatives_list = ClientSideFilter.apply_filter(all_initiatives, filter_obj)
+        else:
+            # Use Linear's native filtering
+            new_initiatives_list = await self.client.get_initiatives(filter_obj)
+        
+        new_initiatives = {init["id"] for init in new_initiatives_list}
+
+        # Calculate changes
+        added = new_initiatives - old_initiatives
+        removed = old_initiatives - new_initiatives
+        unchanged = old_initiatives & new_initiatives
+
+        # Check if initiatives changed
+        initiatives_changed = old_initiatives != new_initiatives
 
         result = {
             "view_id": view["id"],
             "view_name": view["name"],
-            "filter_changed": filter_changed,
-            "old_filter": current_filter,
-            "new_filter": new_filter,
+            "initiatives_changed": initiatives_changed,
+            "filter": filter_obj,
             "dry_run": dry_run,
+            "initiative_count": len(new_initiatives),
+            "old_initiative_count": len(old_initiatives),
+            "added_count": len(added),
+            "removed_count": len(removed),
+            "unchanged_count": len(unchanged),
+            "client_side_filtering": requires_client_side,
         }
 
         # Update the view (unless dry run)
         if not dry_run:
-            if filter_changed:
-                updated_view = await self.client.update_custom_view(
+            if initiatives_changed:
+                updated_view = await self.client.update_custom_view_with_initiative_filter(
                     view["id"],
-                    new_filter
+                    list(new_initiatives)
                 )
                 result["updated"] = True
             else:
                 result["updated"] = False
                 result["skipped"] = True
-                result["skip_reason"] = "Filter unchanged"
+                result["skip_reason"] = "Initiatives unchanged"
         else:
             result["updated"] = False
 

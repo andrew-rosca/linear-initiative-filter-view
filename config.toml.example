@@ -7,56 +7,53 @@
 # Get your token from: https://linear.app/settings/api
 api_token = "lin_api_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 
-# Example 1: Using simplified SQL-like filter syntax
+# Example 1: Using simplified SQL-like filter syntax (status filter)
 [[views]]
-title = "High Priority Initiatives"
-filter = "priority >= 1"
+title = "Active Initiatives"
+filter = "status = 'Active' OR status = 'Planned'"
 
 # Example 2: Using view ID instead of title + filter with status
 [[views]]
 view_id = "roadmap_abc123def456"
-filter = "status = 'started'"
+filter = "status = 'Active'"
 
-# Example 3: Multiple conditions with AND
+# Example 3: Multiple conditions with AND (date range)
 [[views]]
 title = "Q1 2025 Initiatives"
 filter = "startDate >= '2025-01-01' AND targetDate <= '2025-03-31'"
 
-# Example 4: String matching with CONTAINS
+# Example 4: String matching with CONTAINS (searches name)
 [[views]]
 title = "Infrastructure Initiatives"
 filter = "name CONTAINS 'Infrastructure' OR name CONTAINS 'Platform'"
 
-# Example 5: Complex filter with multiple conditions
+# Example 5: Search in content field (markdown description from UI)
 [[views]]
-title = "Active High Priority"
-filter = "status = 'started' AND priority > 2"
+title = "Bucket A Initiatives"
+filter = "content CONTAINS '#bucket:A'"
 
-# Example 6: Using raw GraphQL query for advanced filtering
+# Example 6: Complex filter with date and status
 [[views]]
-title = "Custom GraphQL Query"
-graphql_query = '''
-{
-  initiatives(filter: {
-    status: { eq: "started" }
-    priority: { gte: 1 }
-  }) {
-    nodes {
-      id
-      name
-      status
-    }
-  }
-}
-'''
+title = "Current Active Initiatives"
+filter = "status = 'Active' AND startedAt <= '2025-11-15'"
 
 # Supported filter operators:
 # - Comparison: =, !=, >, >=, <, <=
 # - String: CONTAINS, STARTS_WITH, ENDS_WITH
 # - Logical: AND, OR, NOT
 #
-# Supported fields:
-# - name, status, priority
-# - startDate, start_date (both work)
-# - targetDate, target_date (both work)
-# - description
+# Supported fields for INITIATIVES (note: priority is NOT supported for initiatives):
+# - name: Initiative name (string)
+# - status: Initiative status (string - case-sensitive!)
+#     Valid values: 'Active', 'Planned', 'Completed'
+# - startedAt: Started date (date string, e.g., '2025-01-01')
+# - targetDate: Target date (date string, e.g., '2025-12-31')
+# - description: Initiative short description (string, plain text)
+# - content: Initiative full content (string, markdown format - what you see in UI)
+#
+# Note: 'priority' is only available on ISSUES, not initiatives.
+# This tool filters initiatives, not issues.
+#
+# Fields requiring client-side filtering (fetch all initiatives then filter):
+# - description, content, startedAt
+# Other fields use Linear's native API filtering for better performance.

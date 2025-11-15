@@ -4,7 +4,18 @@ Automatically update Linear roadmap views with custom initiative filters using S
 
 ## Why This Tool?
 
-Linear currently doesn't support filtering initiatives by labels or other custom criteria within roadmap views. This tool works around that limitation by automatically updating roadmap views with specific initiative IDs based on custom filters you define.
+Linear's custom views have limited native filtering capabilities for initiatives. This tool extends what's possible by:
+
+1. **Supporting arbitrary filters** - Filter by any field, including description keywords, complex date logic, or custom criteria
+2. **Client-side filtering** - Query all initiatives, apply your custom filter logic, then set the matching initiatives on the view
+3. **Automatic sync** - Keep your views up-to-date by re-running filters periodically
+
+The tool works by:
+- Running your custom filter query to find matching initiatives
+- Creating an ID-based filter (`{"id": {"in": [...]}}`) with the specific initiative IDs
+- Setting that filter on your Linear custom view
+
+This means you can filter by things Linear doesn't natively support, like keywords in descriptions or complex boolean logic.
 
 ## Features
 
@@ -167,6 +178,38 @@ Generated GraphQL filter:
   ]
 }
 ```
+
+### Export initiatives
+
+Export initiatives from a Linear view to CSV, JSON, or TSV format:
+
+```bash
+# Export to CSV (default, outputs to stdout)
+linear-filter export --view-title "Q1 2025 Initiatives"
+
+# Export to JSON format
+linear-filter export --view-title "Active Initiatives" --format json
+
+# Export to TSV and save to file
+linear-filter export --view-id "roadmap_abc123" --format tsv --output initiatives.tsv
+
+# Short options
+linear-filter export -t "My View" -f csv -o data.csv
+```
+
+**Export formats:**
+- `csv` - Comma-separated values (default)
+- `json` - JSON format with all initiative data
+- `tsv` - Tab-separated values
+
+**Exported fields:**
+- ID, Name, Description, Status, Sort Order
+- Started At, Target Date, Completed At
+- Created At, Updated At, Archived At
+- URL, Slug ID, Color, Icon
+- Organization, Projects
+
+The export command uses the filter configured on the view itself. If the view has no filter, all initiatives will be exported.
 
 ## Filter Syntax
 

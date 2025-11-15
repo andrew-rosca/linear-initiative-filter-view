@@ -10,12 +10,12 @@ class FilterParser:
     """Parser for SQL-like filter expressions."""
 
     # Supported field mappings to Linear API
+    # Note: These are for INITIATIVES, not issues
     FIELD_MAPPINGS = {
         "name": "name",
         "status": "status",
-        "priority": "priority",
-        "startDate": "startDate",
-        "start_date": "startDate",
+        "startedAt": "startedAt",
+        "started_at": "startedAt",
         "targetDate": "targetDate",
         "target_date": "targetDate",
         "description": "description",
